@@ -2,14 +2,14 @@
 
 이 프로젝트는 제미나이(Gemini) AI를 활용하여 관광지의 정보를 쉽고 재미있게 해설해 주는 서비스입니다.
 
-## 🛠️ 실행 방법 (Getting Started)
+## 실행 방법 (Getting Started)
 
 다른 PC에서 이 프로젝트를 실행하려면 다음 단계를 따라주세요.
 
 ### 1. 저장소 복제 
-```bash
+bash
 git clone [https://github.com/hyojun2ya/culture-lens.git](https://github.com/hyojun2ya/culture-lens.git)
-cd culture-lens
+cd culture-lens 
 
 ### 2. 활성화
 # 가상환경 생성
