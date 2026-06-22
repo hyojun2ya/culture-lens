@@ -12,10 +12,10 @@ git clone [https://github.com/hyojun2ya/culture-lens.git](https://github.com/hyo
 cd culture-lens 
 
 ### 2. 활성화
-# 가상환경 생성
+#### 가상환경 생성
 python -m venv venv
 
-# Windows 활성화
+#### Windows 활성화
 venv\Scripts\activate
 
 pip install -r requirements.txt
