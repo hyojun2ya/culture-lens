@@ -2,8 +2,9 @@ import os
 import json
 import requests
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
+from sentence_transformers import SentenceTransformer
 import chromadb
 from app.models.schemas import TranslationRequest
 
@@ -15,21 +16,21 @@ WIKI_SEARCH_API = "https://ko.wikipedia.org/w/api.php"
 
 class CultureAIService:
     def __init__(self):
-        self.llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2)
-        self.embeddings = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
+        self.llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.2)
+        self.embeddings = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
         self.chroma_client = chromadb.PersistentClient(path="./chroma_db")
         self.collection = self.chroma_client.get_collection(name="gangwon_culture")
 
     def _search_encyclopedia(self, word: str) -> str | None:
         try:
-            query_vector = self.embeddings.embed_query(word)
+            query_vector = self.embeddings.encode(word).tolist()
             results = self.collection.query(
                 query_embeddings=[query_vector],
                 n_results=1
             )
             if results["documents"] and results["documents"][0]:
-                distance = results["distances"][0][0] if results.get("distances") else 1.0
-                if distance < 0.7:
+                distance = results["distances"][0][0] if results.get("distances") else 999
+                if distance < 50:
                     return results["documents"][0][0]
             return None
         except Exception as e:
@@ -38,7 +39,6 @@ class CultureAIService:
 
     def _search_wikipedia(self, word: str) -> str | None:
         try:
-            # 직접 제목으로 시도
             res = requests.get(
                 WIKI_API.format(requests.utils.quote(word)),
                 timeout=5
@@ -50,7 +50,6 @@ class CultureAIService:
                     print(f"[위키백과] '{word}' 검색 성공")
                     return f"[출처: 위키백과]\n항목명: {data.get('title')}\n\n{extract}"
 
-            # 실패 시 검색어로 재시도
             search_res = requests.get(
                 WIKI_SEARCH_API,
                 params={
@@ -84,21 +83,19 @@ class CultureAIService:
 
     def ask_cultural_context(self, request: TranslationRequest) -> dict:
 
-        # 1단계: 민족대백과
         context = self._search_encyclopedia(request.word)
         source = "한국민족문화대백과사전"
 
-        # 2단계: 위키백과 fallback
         if not context:
             print(f"[민족대백과] '{request.word}' 없음 → 위키백과 검색")
             context = self._search_wikipedia(request.word)
             source = "위키백과"
 
-        # 3단계: 둘 다 없으면
         if not context:
             context = "관련 공식 데이터가 없습니다."
             source = "없음"
 
+        context = context[:2000]
         print(f"[RAG 소스] {source}")
 
         prompt_template = ChatPromptTemplate.from_messages([
