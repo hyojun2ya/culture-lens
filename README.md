@@ -86,3 +86,5 @@ uvicorn app.main:app --reload
 cd static
 python -m http.server 8080
 ```
+
+
