@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Culture Lens</title>
+
+<!-- 외부 글꼴, 아이콘, 카카오맵 SDK를 불러오는 영역 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=8c88d4eb649d1395a912fc4af7ec5cd0&autoload=false&libraries=services"></script>
+
+<!-- CSS 시작: 앱의 색상, 배치, 화면별 디자인을 정의합니다. -->
+<link rel="stylesheet" href="css/style.css">
+</head>
+<!-- HTML 시작: 사용자가 실제로 보는 각 화면과 모달의 구조입니다. -->
+<body data-theme="terracotta" data-type="sans" data-cardstyle="polaroid" data-lang="kr">
+
+<template id="__bundler_thumbnail">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<rect width="100" height="100" fill="#efe9df"/>
+<circle cx="50" cy="46" r="20" fill="none" stroke="#b25b3a" stroke-width="3"/>
+<circle cx="50" cy="46" r="9" fill="#b25b3a"/>
+<circle cx="44" cy="40" r="3" fill="#efe9df" opacity="0.7"/>
+<text x="50" y="82" font-family="Georgia, serif" font-style="italic" font-size="13" fill="#3a322a" text-anchor="middle">Lens</text>
+</svg>
+</template>
+
+<div class="shell">
+
+    <div class="shell-caption">
+        <span class="eyebrow">Premium Light UI · v2</span>
+        <h1>Culture <em>Lens</em></h1>
+        <p>An AI travel companion that explains Korean culture through words, photos, and familiar comparisons. Tap cards to flip them, then swipe to browse.<span class="ko">한국 문화 어휘를 사진과 비교 설명으로 쉽게 이해할 수 있습니다.</span></p>
+    </div>
+
+    <!-- 앱의 모든 화면을 담는 휴대전화 프레임 -->
+    <div class="phone">
+        <div class="phone-inner" id="phoneInner">
+            <div class="dynamic-island"></div>
+
+            <!-- 1. 앱 로고와 로딩 상태를 보여주는 시작 화면 -->
+            <section class="screen active" id="splashScreen" data-screen-label="01 Splash">
+                <div class="splash-stack">
+                    <div class="splash-logo-frame">
+                        <img class="splash-logo-img" src="assets/culture-lens-logo-orange.png" alt="Culture Lens logo">
+                    </div>
+                    <div class="splash-wordmark">
+                        <div class="word">Culture <em>Lens</em></div>
+                    </div>
+                    <div class="splash-progress">
+                        <div class="splash-bar"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 지도, 카메라, Culture Book으로 이동하는 홈 화면 -->
+            <section class="screen" id="mainScreen" data-screen-label="02 Home">
+                <div class="main-topbar">
+                    <button class="account-btn" id="accountBtn" onclick="openLogin()" type="button">
+                        <i class="fa-solid fa-user"></i>
+                        <span id="accountLabel">SIGN IN</span>
+                    </button>
+                    <div class="main-logo">
+                        <img src="assets/culture-lens-logo-orange.png" alt="Culture Lens logo">
+                    </div>
+                    <div class="main-info-action">
+                        <button class="icon-btn" onclick="openSettings()" aria-label="App info">
+                            <i class="fa-solid fa-circle-info"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="home-trend-grid">
+                    <button class="home-trend-card" onclick="openDubaiCookieCard()" type="button">
+                        <img src="assets/dubai-chewy-cookie.png" alt="">
+                        <span>가장 많이<br>궁금해 한 단어</span>
+                    </button>
+                    <button class="home-trend-card" onclick="openMapView('강릉 경포해변', '강릉 경포해변', 'mainScreen')" type="button">
+                        <img src="assets/gangneung-beach.png" alt="">
+                        <span>가장 많이 렌즈가<br>움직인 장소</span>
+                    </button>
+                </div>
+
+                <div class="home-map">
+                    <div id="homeKakaoMap" class="kakao-map" aria-label="Chuncheon culture map preview"></div>
+                    <div id="homeMapFallback" class="kakao-map-fallback">Open with localhost and check Kakao Web domain registration.</div>
+                </div>
+
+                <div class="home-bottom-nav">
+                    <button class="home-nav-btn" onclick="changeScreen('bookScreen')" type="button">
+                        <i class="fa-solid fa-book-bookmark"></i>
+                        <span>Book</span>
+                    </button>
+                    <button class="home-nav-btn" onclick="changeScreen('cameraScreen')" type="button">
+                        <i class="fa-solid fa-camera"></i>
+                        <span>Scan</span>
+                    </button>
+                    <button class="home-nav-btn" onclick="openCommunity()" type="button">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span>Explore</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 3. Google 또는 이메일로 들어가는 로그인 화면 -->
+            <section class="screen" id="loginScreen" data-screen-label="03 Login">
+                <div class="login-topbar">
+                    <button class="icon-btn" onclick="currentUser ? changeScreen('mainScreen') : openSettings()" aria-label="Back">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <span class="chip">ACCOUNT</span>
+                    <button class="icon-btn" onclick="openSettings()" aria-label="App info">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </button>
+                </div>
+
+                <div class="login-card">
+                    <h3 class="display">Sign in to <em>Lens Talk</em></h3>
+
+                    <button class="login-provider" onclick="loginWithGoogle()" type="button">
+                        <i class="fa-brands fa-google"></i>
+                        Continue with Google
+                    </button>
+
+                    <div class="login-divider">or</div>
+
+                    <form class="login-fields" onsubmit="loginWithEmail(event)">
+                        <input id="loginEmail" type="email" required placeholder="Email address">
+                        <input id="loginPassword" type="password" required placeholder="Password">
+                        <button class="btn-primary" type="submit" style="width:100%">Sign in with Email</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- 4. 문화 단어를 인식하고 분석 결과를 보여주는 카메라 화면 -->
+            <section class="screen" id="cameraScreen" data-screen-label="03 Camera">
+                <div class="cam-topbar">
+                    <button class="icon-btn dark" onclick="changeScreen('mainScreen')" aria-label="Back">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <div id="scanStatusBadge" class="cam-status-pill live">SCANNING LIVE</div>
+                    <button id="saveBtn" class="cam-save-btn" onclick="openSaveModal()">
+                        <i class="fa-solid fa-bookmark"></i> SAVE
+                    </button>
+                    <div id="dummySaveSpace" style="width:38px;height:38px"></div>
+                </div>
+
+                <div class="cam-viewport">
+                    <img id="cameraSampleImg" src="assets/dakgalbi.png" alt="Scan target">
+                    <div class="cam-vignette"></div>
+                    <div class="cam-grid"></div>
+                    <div id="scanLaser" class="scan-laser"></div>
+
+                    <div class="cam-reticle">
+                        <div class="bracket tl"></div>
+                        <div class="bracket tr"></div>
+                        <div class="bracket bl"></div>
+                        <div class="bracket br"></div>
+                    </div>
+                    <div id="targetWordOverlay" class="cam-target-label">닭갈비</div>
+
+                    <div class="cam-coord">37.5651°N · 126.9784°E</div>
+                    <div class="cam-coord-r">f/2.4 · 24mm · ISO 320</div>
+                </div>
+
+                <div class="cam-sheet">
+                    <div id="preScanState" class="pre-scan">
+                        <span class="hint">Step 01 / Frame the subject</span>
+                        <span class="cue">Tap the shutter to start a <em>culture scan</em><span class="ko">셔터를 눌러 문화 해석을 시작하세요.</span></span>
+                    </div>
+                    <div id="postScanState" class="post-scan">
+                        <div class="word-row">
+                            <h4 class="word-kr" id="detectedWordKr">온돌 (<em>Ondol</em>)</h4>
+                            <span class="chip accent" id="targetCountryBadge">USA · LENS</span>
+                        </div>
+                        <p class="word-en" id="wordEngConcept">Korean traditional floor heating system</p>
+                        <div class="desc-box">
+                            <p id="cultureMatchDesc" style="margin:0">Explanation…</p>
+                        </div>
+                    </div>
+
+                    <div class="cam-controls">
+                        <button class="cam-aux-btn" onclick="toggleCameraSample()">
+                            <i class="fa-solid fa-images"></i>
+                            <span class="label" id="sampleLabel">SAMPLE 01</span>
+                        </button>
+                        <div class="shutter-wrap" onclick="simulateScan()">
+                            <div class="shutter-inner"></div>
+                        </div>
+                        <div class="cam-aux-btn" style="background:transparent;border-color:transparent;cursor:default">
+                            <i class="fa-solid fa-bolt" style="color:var(--ink-4)"></i>
+                            <span class="label" style="color:var(--ink-4)">AUTO</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. 저장한 Culture Book 폴더 목록 화면 -->
+            <section class="screen" id="bookScreen" data-screen-label="04 Culture Book">
+                <div class="list-topbar">
+                    <button class="icon-btn" onclick="changeScreen('mainScreen')"><i class="fa-solid fa-chevron-left"></i></button>
+                    <h3 class="display">My <em>Culture Book</em></h3>
+                    <button class="icon-btn" onclick="openNewFolderModal()" style="background:var(--accent);color:white;border-color:var(--accent)" title="New trip">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+                <p class="list-sub">A personal archive of Korean culture cards collected through your lens.<span class="ko">렌즈로 모은 한국 문화 카드를 여행별로 정리합니다.</span></p>
+
+                <div class="list-stats">
+                    <div class="stat-pill">
+                        <span class="label">Total cards</span>
+                        <div class="val" id="statTotal"><em>0</em></div>
+                    </div>
+                </div>
+
+                <div class="folder-scroll" id="folderListContainer"></div>
+
+                <div class="list-cta-bar">
+                    <button class="btn-ghost" onclick="changeScreen('mainScreen')" style="flex:1">
+                        <i class="fa-solid fa-house"></i> MAIN
+                    </button>
+                    <button class="btn-primary" onclick="changeScreen('cameraScreen')" style="flex:1.4">
+                        <i class="fa-solid fa-camera"></i> NEW SCAN
+                    </button>
+                </div>
+            </section>
+
+            <!-- 6. 다른 사용자의 문화 카드를 보는 Lens Talk 화면 -->
+            <section class="screen" id="communityScreen" data-screen-label="05 Lens Talk">
+                <div class="community-topbar">
+                    <button class="icon-btn" onclick="changeScreen('mainScreen')" aria-label="Back">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <div class="community-logo">
+                        <img src="assets/culture-lens-logo-orange.png" alt="Culture Lens logo">
+                    </div>
+                </div>
+                <p class="community-sub"><span class="account-inline" id="communityAccount">Lens Talk</span></p>
+
+                <label class="community-search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="communitySearchInput" type="search" placeholder="Search words, places, or users" oninput="filterCommunity()">
+                </label>
+
+                <div class="trend-row">
+                    <button class="trend-chip hot" onclick="setCommunitySearch('gamja')">#GamjaBread</button>
+                    <button class="trend-chip" onclick="setCommunitySearch('makguksu')">#Makguksu</button>
+                    <button class="trend-chip" onclick="setCommunitySearch('jang kalguksu')">#JangKalguksu</button>
+                    <button class="trend-chip" onclick="setCommunitySearch('abai')">#AbaiSundae</button>
+                </div>
+
+                <div class="community-grid">
+                    <button class="talk-card" onclick="openStory(this)" data-search="gamja bread 감자빵 potato bread chuncheon bakery dessert" data-user="@yuna.bites" data-word="Gamja Bread" data-place="카페감자밭 본점" data-map="카페감자밭 본점 강원특별자치도 춘천시 신북읍 신샘밭로 674" data-img="assets/gamja-bread.png" style="--talk-img:url('assets/gamja-bread.png')">
+                        <span class="word">Gamja Bread</span>
+                        <span class="meta">Yuna · Chuncheon</span>
+                    </button>
+                    <button class="talk-card" onclick="openStory(this)" data-search="makguksu 막국수 buckwheat noodles chuncheon gangwon food" data-user="@min.table" data-word="Makguksu" data-place="Gangneung" data-map="강원 강릉시 창해로350번길 25 강릉 고씨네동해막국수 순두부칼국수 본점" data-img="assets/makguksu.png" style="--talk-img:url('assets/makguksu.png')">
+                        <span class="word">Makguksu</span>
+                        <span class="meta">Min · Chuncheon</span>
+                    </button>
+                    <button class="talk-card" onclick="openStory(this)" data-search="jang kalguksu 장칼국수 spicy noodle soup gangwon food" data-user="@seo.noodles" data-word="Jang Kalguksu" data-place="Gangwon" data-map="강원 장칼국수" data-img="assets/jang-kalguksu.png" style="--talk-img:url('assets/jang-kalguksu.png')">
+                        <span class="word">Jang Kalguksu</span>
+                        <span class="meta">Seo · Gangwon</span>
+                    </button>
+                    <button class="talk-card" onclick="openStory(this)" data-search="abai sundae 아바이 순대 sokcho gangwon korean sausage food" data-user="@mina.food" data-word="Abai Sundae" data-place="Sokcho" data-map="강원 속초시 청호로 115-12 아바이회국수" data-img="assets/abai-sundae.png" style="--talk-img:url('assets/abai-sundae.png')">
+                        <span class="word">Abai Sundae</span>
+                        <span class="meta">Mina · Sokcho</span>
+                    </button>
+                    <button class="talk-card" onclick="openStory(this)" data-search="gukbap joon chuncheon osideuraeyo soup pork food" data-user="@joon.table" data-word="Gukbap" data-place="춘천시 오시드래요" data-map="강원 춘천시 공지로242번길 25 1층 오시드래요" data-img="assets/gukbap.jpg" style="--talk-img:url('assets/gukbap.jpg')">
+                        <span class="word">Gukbap</span>
+                        <span class="meta">Joon · Chuncheon</span>
+                    </button>
+                    <button class="talk-card" onclick="openStory(this)" data-search="makgeolli ara chuncheon munbae village singane rice wine trend" data-user="@ara.ikseon" data-word="Makgeolli" data-place="문배마을 신가네" data-map="문배마을 신가네 강원 춘천시 남산면 강촌문배길 485-5" data-img="assets/makgeolli.jpg" style="--talk-img:url('assets/makgeolli.jpg')">
+                        <span class="word">Makgeolli</span>
+                        <span class="meta">Ara · Munbae Village</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 7. Lens Talk의 선택한 사진을 크게 보는 화면 -->
+            <section class="screen" id="storyScreen" data-screen-label="06 Story">
+                <div class="story-frame" id="storyFrame">
+                    <div class="story-top">
+                        <div class="story-user">
+                            <span class="story-avatar"><i class="fa-solid fa-user"></i></span>
+                            <span id="storyUser">@mina.seoul</span>
+                        </div>
+                        <button class="story-close" onclick="changeScreen('communityScreen')" aria-label="Close story">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div class="story-word">
+                        <h3 id="storyWord">Ondol</h3>
+                    </div>
+
+                    <div class="story-actions">
+                        <button class="story-action" id="storyMapBtn" onclick="openMapFromStory()" aria-label="Open map">
+                            <i class="fa-solid fa-map-location-dot"></i>
+                        </button>
+                        <button class="story-action" id="storyLikeBtn" onclick="toggleStoryLike()" aria-label="Like story">
+                            <i class="fa-solid fa-heart"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 8. 사진이나 카드의 장소를 확인하는 카카오맵 화면 -->
+            <section class="screen" id="mapScreen" data-screen-label="07 Map">
+                <div class="map-topbar">
+                    <button class="icon-btn" onclick="closeMapView()" aria-label="Back">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <div class="map-title">
+                        <h3 id="mapTitle">Photo location</h3>
+                        <p id="mapSubtitle">Where this photo was captured</p>
+                    </div>
+                    <button class="icon-btn" id="mapReturnBtn" onclick="closeMapView()" aria-label="Back">
+                        <i class="fa-solid fa-book-open" id="mapReturnIcon"></i>
+                    </button>
+                </div>
+                <div class="map-embed">
+                    <div id="detailKakaoMap" class="kakao-map" aria-label="Photo location map"></div>
+                </div>
+            </section>
+
+            <!-- 9. 폴더 안의 카드를 앞뒤로 넘겨 보는 Culture Book 상세 화면 -->
+            <section class="screen" id="bookDetailScreen" data-screen-label="05 Flashcard">
+                <div class="detail-topbar">
+                    <button class="icon-btn" onclick="changeScreen('bookScreen')"><i class="fa-solid fa-chevron-left"></i></button>
+                    <div class="title-block">
+                        <h3 class="name" id="folderDetailTitle"><em>Chuncheon</em> Food Trip</h3>
+                    </div>
+                    <button class="icon-btn" onclick="changeScreen('mainScreen')"><i class="fa-solid fa-house"></i></button>
+                </div>
+
+                <div class="flashcard-carousel">
+                    <div class="book-map-bg" aria-hidden="true">
+                        <div id="bookKakaoMap" class="kakao-map"></div>
+                    </div>
+                    <button class="book-map-open" id="bookMapOpenBtn" onclick="openCurrentCardMap()">
+                        <i class="fa-solid fa-map-location-dot"></i> PHOTO LOCATION
+                    </button>
+                    <div class="carousel-track" id="carouselTrack"></div>
+                </div>
+                <div class="carousel-pager" id="carouselPager"></div>
+                <button class="community-upload-action" id="communityUploadBtn" onclick="handleCommunityUploadAction()" type="button">
+                    <i class="fa-solid fa-check"></i> 선택하기
+                </button>
+
+                <div class="card-nav">
+                    <button class="icon-btn" onclick="navigateCard(-1)"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span class="nav-label" id="cardNavLabel">1 / 2</span>
+                    <button class="icon-btn" onclick="navigateCard(1)"><i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </section>
+
+            <!-- 스캔 결과를 저장할 폴더를 선택하는 모달 -->
+            <div id="saveModal" class="modal-backdrop">
+                <div class="modal-sheet">
+                    <h3 class="display">Save to <em>Culture Book</em></h3>
+                    <p class="sub">Choose a trip folder for <strong style="color:var(--accent);font-weight:700">'<span id="modalTargetName">Ondol</span>'</strong>.<br><span class="ko">이 카드를 저장할 여행 폴더를 선택하세요.</span></p>
+                    <div class="modal-folder-list" id="modalFolderList"></div>
+                    <button class="modal-dashed" onclick="openNewFolderModalFromModal()">
+                        <i class="fa-solid fa-plus"></i> &nbsp;NEW TRIP FOLDER
+                    </button>
+                </div>
+            </div>
+
+            <!-- 새 Culture Book 폴더와 여행 날짜를 만드는 모달 -->
+            <div id="newFolderModal" class="modal-backdrop center">
+                <div class="modal-card">
+                    <h3 class="display">Create My Own <em>Culture Book</em></h3>
+                    <input type="text" id="newFolderNameInput" class="modal-input" placeholder="Culture book title">
+                    <div class="date-range-row">
+                        <input type="date" id="newFolderStartDateInput" class="modal-input" aria-label="Trip start date">
+                        <span class="date-sep">~</span>
+                        <input type="date" id="newFolderEndDateInput" class="modal-input" aria-label="Trip end date">
+                    </div>
+                    <div class="modal-cta-row" style="margin-top:14px">
+                        <button class="btn-ghost" onclick="closeNewFolderModal()" style="flex:1">CANCEL</button>
+                        <button class="btn-primary" onclick="submitNewFolder()" style="flex:1.4">CREATE</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 트렌드 단어의 상세 내용을 보여주는 모달 -->
+            <div id="dubaiCookieModal" class="modal-backdrop center">
+                <div class="modal-card culture-word-card">
+                    <img src="assets/dubai-chewy-cookie.png" alt="두바이쫀득쿠키">
+                    <div class="eyebrow">Most Searched Word</div>
+                    <h3>두바이쫀득쿠키</h3>
+                    <p class="sub">초콜릿 쿠키 안에 피스타치오 크림과 바삭한 카다이프 식감을 넣은 디저트예요. SNS에서 유행한 두바이 초콜릿 스타일을 한국식으로 더 쫀득하고 진하게 즐기는 간식입니다.</p>
+                    <div class="tag-row">
+                        <span>#DubaiChocolate</span>
+                        <span>#K-dessert</span>
+                        <span>#ChewyCookie</span>
+                    </div>
+                    <button class="btn-primary" onclick="closeDubaiCookieCard()" style="width:100%;margin-top:16px">DONE</button>
+                </div>
+            </div>
+
+            <!-- 국가와 계정 정보를 확인하는 설정 모달 -->
+            <div id="settingsModal" class="modal-backdrop center">
+                <div class="modal-card">
+                    <h3 class="display">App <em>Info</em></h3>
+                    <p class="sub">Choose your culture so Korean words are explained from a familiar point of view.<br><span class="ko">미국 문화권인지 일본 문화권인지 선택하면 그 기준으로 한국 문화를 설명합니다.</span></p>
+                    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
+                        <div style="font-family:var(--mono);font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--accent);font-weight:700">Culture selector</div>
+                        <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border:1px solid var(--line-soft);border-radius:14px">
+                            <span id="settingsFlagEmoji" style="width:28px;height:28px;border-radius:50%;background:var(--accent-soft);display:inline-flex;align-items:center;justify-content:center;font-size:14px">🇺🇸</span>
+                            <select class="tweak-select" id="settingsCountrySelect" onchange="setTweak('country', this.value)" style="flex:1;margin:0;border:0;background:transparent;font-family:var(--sans);font-size:14px;font-weight:800;color:var(--ink);outline:none">
+                                <option value="United States">American Culture</option>
+                                <option value="Japan">Japanese Culture</option>
+                                <option value="China">Chinese Culture</option>
+                                <option value="Taiwan">Taiwanese Culture</option>
+                            </select>
+                        </label>
+                        <div style="font-family:var(--sans);font-size:12px;line-height:1.45;color:var(--ink-3);padding:12px 14px;background:var(--accent-tint);border:1px solid var(--accent-soft);border-radius:14px">
+                            Example: Makgeolli can be explained like natural wine for American users, or compared with sake culture for Japanese users.
+                        </div>
+                    </div>
+                    <button class="btn-primary" onclick="closeSettingsModal()" style="width:100%">DONE</button>
+                </div>
+            </div>
+
+            <!-- 저장 완료나 오류 메시지를 잠깐 보여주는 알림 -->
+            <div id="toastNotification" class="toast">
+                <span class="icon"><i class="fa-solid fa-circle-check"></i></span>
+                <span id="toastMessage">Updates will appear here.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 테마, 글꼴, 카드 모양, 국가 등을 바꾸는 개발용 설정 패널 -->
+<div id="tweaksPanel">
+    <div class="head">
+        <h4 class="display"><em>Tweaks</em></h4>
+        <button onclick="closeTweaks()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div class="tweak-section">
+        <div class="lbl"><span>Color theme</span></div>
+        <div class="swatch-row">
+            <button class="swatch" data-theme="terracotta" data-name="Clay" style="background:linear-gradient(135deg, #f5f2ec 0%, oklch(54% 0.085 38) 60%, oklch(44% 0.085 38) 100%)"></button>
+            <button class="swatch" data-theme="sage" data-name="Sage" style="background:linear-gradient(135deg, #ffffff 0%, #f16012 60%, #c6480e 100%)"></button>
+            <button class="swatch" data-theme="plum" data-name="Plum" style="background:linear-gradient(135deg, #ffffff 0%, #f16012 60%, #c6480e 100%)"></button>
+            <button class="swatch" data-theme="slate" data-name="Slate" style="background:linear-gradient(135deg, #ffffff 0%, #f16012 60%, #c6480e 100%)"></button>
+            <button class="swatch" data-theme="ink" data-name="Ink" style="background:linear-gradient(135deg, #f5f2ec 0%, oklch(28% 0.015 55) 60%, oklch(18% 0.015 55) 100%)"></button>
+        </div>
+    </div>
+
+    <div class="tweak-section" style="margin-top:24px">
+        <div class="lbl"><span>Typography</span></div>
+        <div class="seg" data-tweak="type">
+            <button data-val="sans" class="on">Sans</button>
+            <button data-val="serif">Serif</button>
+            <button data-val="editorial">Editorial</button>
+        </div>
+    </div>
+
+    <div class="tweak-section">
+        <div class="lbl"><span>Card style</span></div>
+        <div class="seg" data-tweak="cardstyle">
+            <button data-val="polaroid" class="on">Polaroid</button>
+            <button data-val="layered">Layered</button>
+            <button data-val="flat">Flat</button>
+        </div>
+    </div>
+
+    <div class="tweak-section">
+        <div class="lbl"><span>Language tags</span></div>
+        <div class="seg" data-tweak="lang">
+            <button data-val="kr" class="on">Korean</button>
+            <button data-val="en">English</button>
+        </div>
+    </div>
+
+    <div class="tweak-section">
+        <div class="lbl"><span>Country preset</span></div>
+        <select class="tweak-select" id="tweakCountry">
+            <option value="United States">🇺🇸 American Culture</option>
+            <option value="Japan">🇯🇵 Japanese Culture</option>
+            <option value="China">🇨🇳 Chinese Culture</option>
+            <option value="Taiwan">🇹🇼 Taiwanese Culture</option>
+        </select>
+    </div>
+
+    <div class="tweak-section">
+        <div class="lbl"><span>Animation intensity</span><span class="val" id="motionVal">100%</span></div>
+        <input type="range" min="0" max="200" value="100" step="10" class="tweak-slider" id="motionSlider">
+    </div>
+</div>
+
+<!-- JavaScript 시작: 화면 이동, 지도, 스캔, 카드 저장 등 실제 동작을 담당합니다. -->
+<script src="js/app.js"></script>
+</body>
+</html>
+
