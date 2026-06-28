@@ -409,17 +409,42 @@ function resolvePlace(query = "") {
 }
 
 function initKakaoMaps() {
+    // 🌟 [추적] 이 함수가 시작되었는지 확인합니다.
+    console.log("🚀 [지도 추적 1] initKakaoMaps 함수가 정상적으로 호출되었습니다!");
+    
     const fallback = document.getElementById('homeMapFallback');
+    
     if (!window.kakao || !kakao.maps) {
+        console.log("⚠️ [지도 추적 2] 아직 카카오 지도 SDK가 안 읽혀서 0.7초 대기합니다.");
         setTimeout(() => {
-            if (window.kakao && kakao.maps) initKakaoMaps();
-            else if (fallback) {
+            if (window.kakao && kakao.maps) {
+                console.log("🔄 [지도 추적 2-A] 대기 후 카카오 객체 발견! 재호출합니다.");
+                initKakaoMaps();
+            } else if (fallback) {
+                console.log("❌ [지도 추적 2-B] 대기 후에도 실패하여 폴백 메시지를 띄웁니다.");
                 fallback.textContent = "Kakao map is not loading. Check the JavaScript key and Web domain.";
                 fallback.classList.add('show');
             }
         }, 700);
         return;
     }
+
+    console.log("✅ [지도 추적 3] 카카오 객체 확인 완료! 인증 통과 세팅을 시작합니다.");
+    kakaoReady = true;
+    kakaoPlacesService = new kakao.maps.services.Places();
+    kakaoGeocoder = new kakao.maps.services.Geocoder();
+    
+    if (fallback) fallback.classList.remove('show');
+    loadKakaoPlaceCoordinates();
+
+    // 🌟 [추적] 실제 홈 지도를 그리는 본체 함수를 부르기 직전 상태입니다.
+    console.log("🗺️ [지도 추적 4] renderHomeKakaoMap() 함수를 호출합니다.");
+    renderHomeKakaoMap();
+
+    if (document.getElementById('bookDetailScreen')?.classList.contains('active')) {
+        updateBookMapBackground();
+    }
+
     kakao.maps.load(() => {
         kakaoReady = true;
         kakaoPlacesService = new kakao.maps.services.Places();
@@ -884,58 +909,119 @@ function updateFlagAndBadges() {
     if (settingsFlag) settingsFlag.innerText = m.flag;
 }
 
-function simulateScan() {
-    /*
-     * [백엔드 / LLM API 연동 예정 영역]
-     * 현재는 실제 API 호출 코드를 넣지 않고 비워둔 상태입니다.
-     *
-     * 연결할 API: POST /api/v1/context/translate
-     * 요청 데이터: word, user_id, language, country
-     * 응답 데이터: history, modern_shift, analogy
-     *
-     * 프론트 화면 연결 기준:
-     * - word: 현재 인식한 한국어 단어
-     * - history + modern_shift: 카드 뒷면의 Meaning(shortDef)
-     * - analogy: 선택한 국가의 Lens(cultureMatch[homeCountry])
-     *
-     * FastAPI에서 이 HTML도 함께 제공하면 상대 주소로 호출할 수 있습니다.
-     * Google API 키는 HTML에 넣지 않고 백엔드의 .env에서만 관리합니다.
-     */
-
-    // 아래는 API 연동 전에도 화면을 확인할 수 있도록 남겨둔 데모용 동작입니다.
-    // mockCultureData와 COMPARISONS의 샘플 값을 실제 응답처럼 화면에 표시합니다.
-    const t = mockCultureData[activeSampleIdx];
-    const cmp = COMPARISONS[t.krBase] && COMPARISONS[t.krBase][homeCountry] || "Comparative analysis preparing…";
-
-    document.getElementById('scanLaser').style.display = 'none';
+async function simulateScan() {
+    // 1. UI 초기화: 버튼을 누르면 즉시 화면을 로딩 상태로 전환
+    document.getElementById('scanLaser').style.display = 'block';
     document.getElementById('preScanState').style.display = 'none';
     document.getElementById('postScanState').classList.add('active');
+    
+    const descElem = document.getElementById('cultureMatchDesc');
+    descElem.innerHTML = `<span style="color: var(--accent); font-weight: bold;">🔍 AI 문화 인류학 가이드가 고도화된 RAG 엔진에서 분석 리포트를 생성 중입니다...</span>`;
 
-    const krParts = t.kr.match(/^(.+?)\s*\((.+)\)$/);
-    document.getElementById('detectedWordKr').innerHTML = krParts ? `${krParts[1]} (<em>${krParts[2]}</em>)` : t.kr;
-    document.getElementById('wordEngConcept').innerText = t.eng;
-    document.getElementById('cultureMatchDesc').innerText = cmp;
-    document.getElementById('targetCountryBadge').innerText = COUNTRY_META[homeCountry].lensLabel;
+    // 2. 데이터 안전하게 추출하기 (422 에러 완전 방어)
+    const wordOverlay = document.getElementById('targetWordOverlay');
+    const detectedWord = wordOverlay ? wordOverlay.innerText.trim() : "닭갈비";
 
-    scannedData = {
-        kr: t.kr,
-        krBase: t.krBase,
-        eng: t.eng,
-        desc: cmp,
-        tags: ["#K-culture", "#travel", "#word"],
-        // 카드 뒷면의 Meaning에는 shortDef, 국가별 Lens에는 cultureMatch[homeCountry]가 표시됩니다.
-        shortDef: t.eng,
-        cultureMatch: { [homeCountry]: cmp },
-        img: t.img,
-        date: t.date,
-        targetCountry: homeCountry
+    const countrySelect = document.getElementById('settingsCountrySelect') || document.getElementById('tweakCountry');
+    const userCountry = countrySelect ? countrySelect.value : "United States";
+    
+    // 선택한 국가(렌즈)에 맞춰 AI가 출력할 언어를 자동으로 매핑합니다!
+    let userLanguage = "English"; // 기본값 설정
+    const countryUpper = userCountry.toUpperCase();
+
+    if (countryUpper.includes("JAPAN")) {
+        userLanguage = "Japanese";
+    } else if (countryUpper.includes("CHINA") || countryUpper.includes("TAIWAN")) {
+        userLanguage = "Chinese";
+    } else if (countryUpper.includes("AMERICA") || countryUpper.includes("UNITED") || countryUpper.includes("US")) {
+        userLanguage = "English";
+    }
+
+    const userId = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) ? currentUser.uid : "dev_guest_user";
+    // 🚨 [상호 검증용 로그] 콘솔 창에서 데이터 누락 여부를 한눈에 확인합니다.
+    const requestPayload = {
+        word: detectedWord,
+        user_id: userId,
+        language: userLanguage,
+        country: userCountry
     };
+    console.log("📦 백엔드로 보내는 택배 데이터:", requestPayload);
 
-    document.getElementById('saveBtn').classList.add('visible');
-    document.getElementById('dummySaveSpace').style.display = 'none';
-    const badge = document.getElementById('scanStatusBadge');
-    badge.className = 'cam-status-pill done';
-    badge.textContent = 'SCAN COMPLETE';
+    try {
+        // 3. 백엔드 통신 시작
+        const response = await fetch('http://127.0.0.1:8000/api/v1/context/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestPayload)
+        });
+
+        if (!response.ok) {
+            const errorDetail = await response.json();
+            console.error("❌ 백엔드 에러 상세 원인:", errorDetail);
+            throw new Error(`서버 응답 실패 (상태 코드: ${response.status})`);
+        }
+        
+        const data = await response.json(); 
+        console.log("🎉 백엔드에서 정상 수신한 결과 데이터:", data);
+
+        // 4. 수신 완료 후 화면 UI 매핑
+        document.getElementById('scanLaser').style.display = 'none';
+
+        const t = (typeof mockCultureData !== 'undefined') ? mockCultureData[activeSampleIdx] : null;
+        if (t && t.kr) {
+            const krParts = t.kr.match(/^(.+?)\s*\((.+)\)$/);
+            document.getElementById('detectedWordKr').innerHTML = krParts ? `${krParts[1]} (<em>${krParts[2]}</em>)` : t.kr;
+            document.getElementById('wordEngConcept').innerText = t.eng;
+        } else {
+            document.getElementById('detectedWordKr').innerHTML = detectedWord;
+            document.getElementById('wordEngConcept').innerText = `Culture Analysis Report for ${userCountry}`;
+        }
+        
+        descElem.innerHTML = `
+            <div style="margin-bottom: 12px;">
+                <strong style="color: var(--accent);">📜 역사적 배경 (History)</strong>
+                <p style="margin: 4px 0 0 0; font-size: 13px; line-height: 1.5;">${data.history}</p>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <strong style="color: var(--accent);">📈 현대적 인식 (Modern Shift)</strong>
+                <p style="margin: 4px 0 0 0; font-size: 13px; line-height: 1.5;">${data.modern_shift}</p>
+            </div>
+            <div>
+                <strong style="color: var(--accent);">💡 맞춤형 비유 (Analogy)</strong>
+                <p style="margin: 4px 0 0 0; font-size: 13px; line-height: 1.5;">${data.analogy}</p>
+            </div>
+        `;
+        
+        if (typeof COUNTRY_META !== 'undefined' && COUNTRY_META[userCountry]) {
+            document.getElementById('targetCountryBadge').innerText = COUNTRY_META[userCountry].lensLabel;
+        }
+
+        // 글로벌 보관용 객체 업데이트
+        scannedData = {
+            kr: t ? t.kr : detectedWord,
+            krBase: detectedWord,
+            eng: t ? t.eng : "Analysis Report",
+            desc: data.analogy,
+            tags: ["#CultureLens", "#RAG_AI", `#${userCountry}`],
+            shortDef: `${data.history}\n\n${data.modern_shift}`,
+            cultureMatch: { [userCountry]: data.analogy },
+            img: t ? t.img : "assets/dakgalbi.png",
+            date: new Date().toISOString().split('T')[0],
+            targetCountry: userCountry
+        };
+
+        document.getElementById('saveBtn').classList.add('visible');
+        document.getElementById('dummySaveSpace').style.display = 'none';
+        
+        const badge = document.getElementById('scanStatusBadge');
+        badge.className = 'cam-status-pill done';
+        badge.textContent = 'SCAN COMPLETE';
+
+    } catch (error) {
+        console.error("전체 프로세스 실패:", error);
+        descElem.innerHTML = `<span style="color: red; font-weight: bold;">⚠️ 백엔드 내부 연단 오류 혹은 API 키 검증 실패. (F12 콘솔 창 로그를 확인하세요.)</span>`;
+        document.getElementById('scanLaser').style.display = 'none';
+    }
 }
 
 /* ════════════════════════════════════════════════════════
