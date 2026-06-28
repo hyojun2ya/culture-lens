@@ -38,37 +38,51 @@
 
 ### 1) 저장소 복제 (Clone)
 ```bash
-- git clone https://github.com/hyojun2ya/culture-lens.git
-- cd culture-lens
+git clone https://github.com/hyojun2ya/culture-lens.git
+cd culture-lens
 ```
 
 ### 2) 가상환경 생성 및 활성화
-# 가상환경 생성
+#### 가상환경 생성
+```bash
 python -m venv venv
+```
 
-
-# 가상환경 활성화 (Windows)
+#### 가상환경 활성화 (Windows)
+``` bash
 venv\Scripts\activate
+```
 
-# 가상환경 활성화 (Mac/Linux)
+#### 가상환경 활성화 (Mac/Linux)
+```bash
 source venv/bin/activate
+```
 
 ### 3) 라이브러리 설치
+``` bash
 pip install -r requirements.txt
+```
 
 ### 4) 환경 변수 설정 (env 파일 만들기)
 프로젝트 루트 디렉토리에 .env 파일을 생성하고 아래와 같이 발급받은 API 키를 입력합니다.
+``` bash
 GOOGLE_API_KEY=당신의_제미나이_API_키
 GROQ_API_KEY=당신의_그록_API_키
+```
 
 ### 5) 데이터베이스 초기화 (RAG 빌드)
+``` bash
 python init_db.py
+```
 
 ### 6) 백엔드 서버 구동 (Port: 8000)
+``` bash
 uvicorn app.main:app --reload
+```
 
 ### 7) 프론트엔드 웹 서버 구동 (Port: 8080)
 새 터미널 창을 열고 아래 명령어를 실행합니다.
-
+``` bash
 cd static
 python -m http.server 8080
+```
