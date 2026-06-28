@@ -6,3 +6,4 @@ langchain-google-genai
 langchain-groq
 python-dotenv
 sentence-transformers
+beautifulsoup4
