@@ -11,9 +11,6 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 # 4. 내 프로젝트의 모든 소스 코드 복사
 COPY . .
 
-# 5. 빌드할 때 민족대백과 RAG 데이터베이스(Chroma DB) 미리 굽기
-RUN python init_db.py
-
 # 6. 허깅페이스 내부 권한 부여 (에러 방지용 치트키)
 RUN chmod -R 777 /code
 
