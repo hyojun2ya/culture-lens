@@ -1,3 +1,12 @@
+---
+title: Culture Lens
+emoji: 🗺️
+colorFrom: orange
+colorTo: brown
+sdk: docker
+app_port: 7860
+---
+
 # 🗺️ Culture Lens (컬처 렌즈)
 > **"어휘와 사진, 친숙한 비교를 통해 한국 문화를 쉽게 이해하는 Gemini AI 여행 동반자"**
 > An AI travel companion that explains Korean culture through words, photos, and familiar comparisons.
