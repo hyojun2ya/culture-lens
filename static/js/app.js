@@ -949,7 +949,7 @@ async function simulateScan() {
 
     try {
         // 3. 백엔드 통신 시작
-        const response = await fetch('http://127.0.0.1:8000/api/v1/context/translate', {
+            const response = await fetch("/api/v1/context/translate", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestPayload)
