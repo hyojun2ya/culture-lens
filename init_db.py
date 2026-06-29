@@ -1,18 +1,25 @@
 import os
 import csv
 import time
-import requests
-from bs4 import BeautifulSoup
+import json
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 import chromadb
 
 load_dotenv()
 
-CSV_FILE    = "data/korean_encyclopedia_raw.csv"
-CHROMA_PATH = "./chroma_db"
-COLLECTION  = "gangwon_culture"
-CRAWL_DELAY = 0.5
+CSV_FILE      = "data/korean_encyclopedia_raw.csv"
+CHROMA_PATH   = "./chroma_db"
+COLLECTION    = "gangwon_culture"
+CRAWL_DELAY   = 1.0
+PROGRESS_FILE = "data/crawl_progress.json"
 
 TARGET_KEYWORDS = [
     "막국수", "장칼국수", "아바이순대", "국밥", "막걸리",
@@ -37,33 +44,72 @@ def load_items_from_csv(csv_path: str) -> list:
                     items.append({"name": name, "category": category, "url": new_url, "eid": eid})
     return items
 
-def crawl_article(url: str) -> str:
+def crawl_article_selenium(driver, url: str) -> str:
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; CultureLens/1.0)"}
-        res = requests.get(url, headers=headers, timeout=10)
-        if res.status_code != 200:
-            return ""
-        soup = BeautifulSoup(res.text, "html.parser")
+        driver.get(url)
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "#body_content, .article_body, .cont_body, .view_cont"))
+        )
+        time.sleep(2)
+
         texts = []
-        definition = soup.select_one(".def_content, .summary, .article-summary")
-        if definition:
-            texts.append(definition.get_text(strip=True))
-        sections = soup.select(".article-content p, .cont_body p, .view_cont p")
-        for s in sections:
-            t = s.get_text(strip=True)
-            if t:
-                texts.append(t)
+
+        # 정의문 (요약문) - 여러 셀렉터 시도
+        for selector in [".summary", ".def_content", ".article-summary", ".view_cont > p:first-child", "#summary p"]:
+            try:
+                elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                for el in elements:
+                    t = el.text.strip()
+                    if t and t not in texts:
+                        texts.append(t)
+                if texts:
+                    break
+            except:
+                pass
+
+        # 본문 전체
+        for selector in ["#body_content p", ".article_body p", ".cont_body p", ".view_cont p"]:
+            try:
+                sections = driver.find_elements(By.CSS_SELECTOR, selector)
+                for s in sections:
+                    t = s.text.strip()
+                    if t and t not in texts:
+                        texts.append(t)
+                if len(texts) > 1:
+                    break
+            except:
+                pass
+
+        # fallback - 전체 텍스트
         if not texts:
-            body = soup.select_one("article, .article, #article, main")
-            if body:
-                texts.append(body.get_text(separator="\n", strip=True))
+            for selector in ["#body_content", ".article_body", ".view_cont", "main"]:
+                try:
+                    body = driver.find_element(By.CSS_SELECTOR, selector)
+                    t = body.text.strip()
+                    if t:
+                        texts.append(t)
+                        break
+                except:
+                    pass
+
         return "\n".join(texts)
     except Exception as e:
-        print(f"  ⚠️ 크롤링 실패: {e}")
+        print(f"  ⚠️ 크롤링 실패 ({url}): {e}")
         return ""
 
+def load_progress() -> set:
+    if os.path.exists(PROGRESS_FILE):
+        with open(PROGRESS_FILE, "r") as f:
+            return set(json.load(f))
+    return set()
+
+def save_progress(done_eids: set):
+    os.makedirs("data", exist_ok=True)
+    with open(PROGRESS_FILE, "w") as f:
+        json.dump(list(done_eids), f)
+
 def main():
-    print("📂 1. CSV에서 시연 키워드 항목 필터링 중...")
+    print("📂 1. CSV 파일 읽는 중...")
     items = load_items_from_csv(CSV_FILE)
     print(f"   매칭된 항목: {len(items)}개")
     for item in items:
@@ -78,31 +124,56 @@ def main():
         pass
     collection = client.get_or_create_collection(name=COLLECTION)
 
-    print("🤖 3. 로컬 임베딩 모델 로딩 중... (첫 실행시 다운로드 있음)")
-    model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+    print("🤖 3. 로컬 임베딩 모델 준비 중...")
+    embeddings = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
-    print("\n4. 크롤링 & 임베딩 시작...\n")
+    print("🌐 4. Selenium 브라우저 시작 중...")
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()),
+        options=chrome_options
+    )
+
+    # 진행상황 초기화 (새로 시작)
+    if os.path.exists(PROGRESS_FILE):
+        os.remove(PROGRESS_FILE)
+    done_eids = set()
+
     total_saved = 0
 
-    for i, item in enumerate(items):
-        print(f"[{i+1}/{len(items)}] {item['name']} 처리 중...")
-        content = crawl_article(item["url"])
+    try:
+        for i, item in enumerate(items):
+            eid = item["eid"]
 
-        if not content.strip():
-            print(f"  → 본문 없음, 스킵")
-            continue
+            print(f"[{i+1}/{len(items)}] {item['name']} 크롤링 중...")
+            content = crawl_article_selenium(driver, item["url"])
 
-        doc_text = f"[항목명] {item['name']}\n[분야] {item['category']}\n\n{content}"
-        vector = model.encode(doc_text).tolist()
-        collection.add(
-            embeddings=[vector],
-            documents=[doc_text],
-            ids=[item["eid"]],
-            metadatas=[{"name": item["name"], "category": item["category"], "url": item["url"]}]
-        )
-        total_saved += 1
-        print(f"  ✅ 저장 완료 ({total_saved}개)")
-        time.sleep(CRAWL_DELAY)
+            if not content.strip():
+                print(f"  → 본문 없음, 스킵")
+                done_eids.add(eid)
+                continue
+
+            print(f"  → 본문 길이: {len(content)}자")
+            doc_text = f"[항목명] {item['name']}\n[분야] {item['category']}\n\n{content}"
+            vector = embeddings.encode(doc_text).tolist()
+            collection.add(
+                embeddings=[vector],
+                documents=[doc_text],
+                ids=[eid],
+                metadatas=[{"name": item["name"], "category": item["category"], "url": item["url"]}]
+            )
+            total_saved += 1
+            done_eids.add(eid)
+            print(f"  ✅ 저장 완료 ({total_saved}개)")
+            save_progress(done_eids)
+            time.sleep(CRAWL_DELAY)
+
+    finally:
+        driver.quit()
 
     print(f"\n🎉 완료! 총 {total_saved}개 항목 저장됨")
 
