@@ -8,3 +8,5 @@ python-dotenv
 sentence-transformers
 beautifulsoup4
 chromadb
+selenuim
+webdriver-manager
